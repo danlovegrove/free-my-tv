@@ -588,6 +588,92 @@ button { font: inherit; color: inherit; background: none; border: 0; padding: 0;
 #saver .clock .title { margin-top: 18px; font-size: 26px; font-weight: 500; color: rgba(255, 255, 255, 0.65); }
 #saver .clock .hint { margin-top: 8px; font-size: 22px; color: rgba(255, 255, 255, 0.55); }
 
+/* MARK: - Home Assistant (web/ha.js): the strip, the drawer's tiles, the player card, the doorbell */
+
+/* Up to 3 quiet pills at the top right, ending left of the round buttons (which start at 1596). */
+#hastrip { position: absolute; right: 360px; top: 79px; height: 48px; white-space: nowrap; text-align: right; }
+#hastrip .pill {
+  display: inline-block;
+  position: relative;
+  height: 48px;
+  margin-left: 12px;
+  padding: 0 22px 0 54px;
+  border-radius: 24px;
+  font-size: 22px;
+  line-height: 48px;
+  color: #1D1D1F;
+  background: rgba(255, 255, 255, 0.62);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.9), inset 0 0 0 1px rgba(255, 255, 255, 0.5);
+}
+#hastrip .sym { position: absolute; left: 20px; top: 13px; width: 22px; height: 22px; background-color: #6E6E73; }
+#hastrip .l { color: #6E6E73; font-weight: 500; margin-right: 10px; }
+#hastrip .v { font-weight: 600; }
+.night #hastrip .pill { color: #F5F5F7; background: rgba(38, 38, 42, 0.7); box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.1); }
+.night #hastrip .sym { background-color: rgba(245, 245, 247, 0.62); }
+.night #hastrip .l { color: rgba(245, 245, 247, 0.62); }
+
+/* A tile that ran: a short green pulse. */
+.key.ran { background: #34C759 !important; color: #FFF !important; }
+/* A crowded drawer (Home Assistant's tiles): names a step smaller, so more of them fit whole. */
+.key.narrow .label { left: 4px; right: 4px; font-size: 20px; }
+
+#player .art { position: absolute; left: 34px; top: 84px; width: 182px; height: 182px; border-radius: 16px; overflow: hidden; background: rgba(0, 0, 0, 0.08); }
+#player .art .sym { position: absolute; left: 66px; top: 66px; width: 50px; height: 50px; background-color: #8E8E93; }
+#player .art img { position: absolute; left: 0; top: 0; width: 182px; height: 182px; z-index: 1; }
+#player .text { position: absolute; left: 248px; right: 34px; top: 96px; white-space: nowrap; }
+#player .title { font-size: 36px; font-weight: 600; overflow: hidden; text-overflow: ellipsis; }
+#player .artist { margin-top: 10px; font-size: 27px; font-weight: 500; color: #6E6E73; overflow: hidden; text-overflow: ellipsis; }
+#player .state { position: absolute; left: 248px; right: 34px; top: 222px; height: 30px; }
+#player .state .sym { position: absolute; left: 0; top: 2px; width: 26px; height: 26px; background-color: #6E6E73; }
+#player .state .bar { position: absolute; left: 44px; right: 64px; top: 12px; height: 6px; border-radius: 3px; background: rgba(0, 0, 0, 0.12); overflow: hidden; }
+#player .state .fill { height: 6px; background: #1D1D1F; }
+#player .state.paused .fill { background: #8E8E93; }
+#player .state .n { position: absolute; right: 0; top: 0; font-size: 22px; font-weight: 600; color: #6E6E73; -webkit-font-feature-settings: 'tnum'; font-feature-settings: 'tnum'; }
+.night #player .art { background: rgba(255, 255, 255, 0.08); }
+.night #player .artist, .night #player .state .n { color: rgba(255, 255, 255, 0.68); }
+.night #player .state .sym { background-color: rgba(255, 255, 255, 0.68); }
+.night #player .state .bar { background: rgba(255, 255, 255, 0.16); }
+.night #player .state .fill { background: #F5F5F7; }
+
+/* The doorbell: over everything but the toast, the camera in a 16:9 card. */
+#doorbell {
+  z-index: 5;
+  background: rgba(0, 0, 0, 0.72);
+  opacity: 0;
+  visibility: hidden;
+  -webkit-transition: opacity 0.25s, visibility 0s 0.25s;
+  transition: opacity 0.25s, visibility 0s 0.25s;
+}
+#doorbell.on { opacity: 1; visibility: visible; -webkit-transition: opacity 0.25s; transition: opacity 0.25s; }
+#doorbell .card {
+  position: absolute;
+  left: 400px;
+  top: 225px;
+  width: 1120px;
+  height: 630px;
+  border-radius: 34px;
+  overflow: hidden;
+  background: #1C1C1E;
+  box-shadow: 0 30px 80px rgba(0, 0, 0, 0.55);
+}
+#doorbell img { position: absolute; left: 0; top: 0; width: 1120px; height: 630px; }
+#doorbell.wait img { opacity: 0; }
+#doorbell .title {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  height: 96px;
+  padding: 0 40px;
+  font-size: 34px;
+  font-weight: 600;
+  line-height: 110px;
+  color: #FFF;
+  white-space: nowrap;
+  background: -webkit-linear-gradient(top, rgba(0, 0, 0, 0), rgba(0, 0, 0, 0.62));
+  background: linear-gradient(rgba(0, 0, 0, 0), rgba(0, 0, 0, 0.62));
+}
+
 /* MARK: - Toast */
 
 #toast {

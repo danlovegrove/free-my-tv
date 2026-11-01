@@ -82,7 +82,9 @@
     ['nfl', /nfl/, /^nfl/i, ['#013369', '#00163D']],
     ['globoplay', /globoplay/, /globoplay/i, ['#FF8A1F', '#FF2D5A']],
     ['jellyfin', /jellyfin/i, /jellyfin/i, ['#AA5CC3', '#00A4DC']],
-    ['spotify', /spotify/, /spotify/i, ['#1DB954', '#0F7A36']]
+    ['spotify', /spotify/, /spotify/i, ['#1DB954', '#0F7A36']],
+    ['iplayer', /iplayer/, /iplayer/i, ['#F54997', '#A8105A']],
+    ['channel4', /channel4|all4/, /^channel ?4$|^all ?4$/i, ['#1C1C1E', '#000000']]
   ];
   // Apps shown at once, as on Android: 8 (today's smallest tiles, 178 wide); the shelf scrolls for the rest. The
   // built-in list keeps 8 too.
@@ -584,7 +586,25 @@
 
   // MARK: - Drawer
 
-  var drawerItems = [], drawerInputs = 0;
+  var drawerItems = [], drawerInputs = 0, drawerHa = 0, haTiles = '';
+
+  /** The Home Assistant tiles (tv-bridge's actions, then the player's), and a key that changes when they do. */
+  function haActions() {
+    var v = HA.view(), list = v && v.actions ? v.actions : [], off = HA.status() !== 'ok';
+    return {list: list, off: off, key: off + JSON.stringify(list)};
+  }
+
+  /** OK on a Home Assistant tile: the bridge runs it; the tile answers with a short pulse, or a toast if it couldn't. */
+  function haRun(id, index) {
+    return function () {
+      var keyNode = document.querySelectorAll('#drawer .key')[index];
+      HA.run(id, function (err) {
+        if (err) { toast(tr("Couldn't reach Home Assistant.")); return; }
+        setClass(keyNode, 'ran', true);
+        setTimeout(function () { setClass(keyNode, 'ran', false); }, 700);
+      });
+    };
+  }
 
   function renderDrawer() {
     var d = $('drawer');
@@ -598,16 +618,36 @@
     drawerItems.push({label: tr('All Apps'), symbol: 'apps', run: openApps});
     drawerItems.push({label: tr('Home Settings'), symbol: 'settings', run: openSettings});
     if (TV.canOpenSettings) drawerItems.push({label: tr('TV Settings'), symbol: 'tv_settings', run: tvSettings});
-    var n = drawerItems.length, gap = 18, groupGap = 56, groups = drawerInputs > 0 && drawerInputs < n ? 2 : 1;
+    var ha = haActions();
+    haTiles = ha.key;
+    // With Home Assistant's tiles the row gets crowded (12 tiles leave ~120 px each, names cut short): then the HDMI
+    // ports with nothing plugged in step aside. Live TV and every connected port stay.
+    if (ha.list.length && drawerItems.length + ha.list.length > 10) {
+      var kept = [];
+      for (var c = 0; c < drawerInputs; c++) if (!drawerItems[c].off || c === 0) kept.push(drawerItems[c]);
+      drawerItems = kept.concat(drawerItems.slice(drawerInputs));
+      drawerInputs = kept.length;
+    }
+    drawerHa = drawerItems.length;
+    for (var h = 0; h < ha.list.length; h++) {
+      drawerItems.push({label: ha.list[h].label, symbol: ha.list[h].icon || 'smart_button', off: ha.off, run: haRun(ha.list[h].id, drawerItems.length)});
+    }
+    var n = drawerItems.length, gap = 18, groupGap = 56;
+    var groups = 1 + (drawerInputs > 0 && drawerInputs < n ? 1 : 0) + (drawerHa < n ? 1 : 0);
     var tw = Math.min(230, (1760 - Math.max(0, n - groups) * gap - (groups - 1) * groupGap) / Math.max(1, n));
     var xPos = 80;
+    st.drawer = Math.min(st.drawer, Math.max(0, n - 1));
     for (var k = 0; k < n; k++) {
       if (k === drawerInputs && k > 0) {
         xPos += groupGap - gap;
         el('div', 'row-title', d, tr('Shortcuts')).style.left = (xPos + 4) + 'px';
       }
+      if (k === drawerHa && k > 0) {
+        xPos += groupGap - gap;
+        el('div', 'row-title', d, 'Home Assistant').style.left = (xPos + 4) + 'px';
+      }
       if (k === 0 && drawerInputs) el('div', 'row-title', d, tr('Inputs')).style.left = '84px';
-      var item = drawerItems[k], key = el('div', 'key glass' + (item.off ? ' off' : ''), d);
+      var item = drawerItems[k], key = el('div', 'key glass' + (item.off ? ' off' : '') + (tw < 170 ? ' narrow' : ''), d);
       key.style.left = xPos + 'px';
       key.style.width = tw + 'px';
       sym(item.symbol, key);
@@ -623,22 +663,58 @@
     var d = $('drawer');
     var old = d.querySelectorAll('.panel');
     for (var o = 0; o < old.length; o++) d.removeChild(old[o]);
-    var wx = Prefs.weather(), coins = Data.activeCoins(), qt = coins.length > 0;
+    var wx = Prefs.weather(), coins = Data.activeCoins();
+    // What's playing on the Home Assistant player takes the right-hand card while it plays or is paused; the
+    // prices come back when it stops. Three cards would leave the forecast's hours too narrow.
+    var pv = playerNow(), right = pv ? 'player' : coins.length > 0 ? 'prices' : '';
+    playerShown = pv ? playerKey(pv) : '';
     var split = 80 + 1760 * 0.585;
     if (wx) {
       var w = el('div', 'panel glass', d);
       w.id = 'weather';
       w.style.left = '80px';
-      w.style.width = ((qt ? split - 16 : 1840) - 80) + 'px';
+      w.style.width = ((right ? split - 16 : 1840) - 80) + 'px';
       renderWeather(w);
     }
-    if (qt) {
+    if (right) {
       var q = el('div', 'panel glass', d);
-      q.id = 'prices';
+      q.id = right;
       var left = wx ? split + 16 : 80;
       q.style.left = left + 'px';
       q.style.width = (1840 - left) + 'px';
-      renderPrices(q, coins);
+      if (right === 'player') renderPlayer(q, pv); else renderPrices(q, coins);
+    }
+  }
+
+  var playerShown = '';
+
+  /** The player's view while it plays or is paused, else null. */
+  function playerNow() {
+    var v = HA.view(), p = v && v.player;
+    return p && (p.state === 'playing' || p.state === 'paused') && (p.title || p.artist) ? p : null;
+  }
+
+  function playerKey(p) { return [p.state, p.title, p.artist, p.source, p.volume, p.art, p.name].join('|'); }
+
+  function renderPlayer(card, p) {
+    el('div', 'head', card, p.name);
+    if (p.source) el('div', 'side', card, p.source);
+    var art = el('div', 'art', card);
+    if (p.art) {
+      var img = el('img', '', art);
+      img.onerror = function () { if (img.parentNode) img.parentNode.removeChild(img); };
+      img.src = HA.art(p.art);
+    }
+    sym('speaker', art);   // under the cover: shows where there's no cover, or it didn't load
+    var text = el('div', 'text', card);
+    el('div', 'title', text, p.title || p.artist);
+    if (p.title && p.artist) el('div', 'artist', text, p.artist);
+    var state = el('div', 'state' + (p.state === 'paused' ? ' paused' : ''), card);
+    sym(p.state === 'paused' ? 'play' : 'speaker', state);
+    if (p.volume !== null && p.volume !== undefined) {
+      var bar = el('div', 'bar', state);
+      el('div', 'fill', bar).style.width = Math.max(0, Math.min(100, p.volume)) + '%';
+      el('span', 'n', state, String(p.volume));
     }
   }
 
@@ -801,6 +877,11 @@
       var open = Prefs.openPicks();
       rows.push({label: tr('Open picks in'), value: open === 'nuvio' ? 'Nuvio' : tr('Streaming apps'),
         step: function (d) { cycle('openPicks', ['apps', 'nuvio'], open, d); }});
+    }
+    if (HA.available()) {
+      // A product name, as on Android: not translated. Off stops the strip, the tiles and the doorbell at once.
+      rows.push({label: 'Home Assistant', toggle: Prefs.ha(), dim: Prefs.ha() && HA.status() !== 'ok',
+        step: function () { Prefs.set('ha', !Prefs.ha()); HA.start(); }});
     }
     rows.push({label: tr('Shelf'), value: '›', shelf: true, step: function (d) { if (d >= 0) openShelfEdit(); }});
     rows.push({label: tr('About this TV'), value: '›', about: true, step: function (d) { if (d >= 0) openAbout(); }});
@@ -1435,6 +1516,79 @@
     node.onclick = function () { node.onmouseover(); activate(); };
   }
 
+  // MARK: - Home Assistant (web/ha.js): the household strip, the drawer's tiles and player card, the doorbell
+
+  /** Up to 3 read-only values at the top right, left of the round buttons: words the bridge wrote ("Tomorrow"). */
+  function renderStrip() {
+    var box = $('hastrip'), v = HA.status() === 'ok' ? HA.view() : null, items = v && v.strip ? v.strip : [];
+    box.innerHTML = '';
+    for (var i = 0; i < items.length && i < 3; i++) {
+      var pill = el('div', 'pill', box);
+      sym(items[i].icon || 'smart_button', pill);
+      if (items[i].label) el('span', 'l', pill, items[i].label);
+      el('span', 'v', pill, items[i].text);
+    }
+  }
+
+  var haLast = 'off';
+
+  function haChanged() {
+    var now = HA.status();
+    // A word when it stops working, once: not every retry, and not for a bridge that never answered since start.
+    if ((now === 'error' || now === 'down') && haLast !== now && HA.worked()) toast(tr("Couldn't reach Home Assistant."));
+    haLast = now;
+    renderStrip();
+    if (haActions().key !== haTiles) renderDrawer();
+    var pv = playerNow();
+    if ((pv ? playerKey(pv) : '') !== playerShown) renderPanels();
+    var v = HA.view();
+    if (v && v.doorbell && v.doorbell.ringing) ring(v.doorbell);   // a ring in the last minute, seen on (re)connecting
+    if (st.zone === Z.SETTINGS) renderSettings();
+  }
+
+  // The doorbell: the camera over everything on the home screen, its picture fetched again every 2 s, for a minute
+  // from the ring. Back or OK closes it; no other key reaches the home screen under it.
+  var BELL_FOR = 60000, BELL_EVERY = 2000;
+  var bellOn = false, bellSeen = 0, bellAt = 0, bellTimer = 0, bellLoad = null;
+
+  function ring(d) {
+    if (!d || !d.at || d.at <= bellSeen || Date.now() - d.at > BELL_FOR) return;
+    bellSeen = d.at;
+    bellAt = d.at;
+    hideSaver();
+    hideAmbient();
+    idleAt = Date.now();
+    var box = $('doorbell');
+    box.querySelector('.title').textContent = (d.label || '') + '  ·  ' + formatDate('format|h:mm', d.at);
+    setClass(box, 'wait', true);   // until the first picture is in
+    bellOn = true;
+    setClass(box, 'on', true);
+    bellPicture();
+  }
+
+  function bellPicture() {
+    clearTimeout(bellTimer);
+    if (!bellOn) return;
+    if (Date.now() - bellAt > BELL_FOR) { hideBell(); return; }
+    var next = new Image();   // swapped in once loaded, so the picture never blinks to empty
+    bellLoad = next;
+    next.onload = function () {
+      if (bellLoad !== next || !bellOn) return;
+      $('doorbell').querySelector('img').src = next.src;
+      setClass($('doorbell'), 'wait', false);
+    };
+    next.src = HA.snapshot();
+    bellTimer = setTimeout(bellPicture, BELL_EVERY);
+  }
+
+  function hideBell() {
+    bellOn = false;
+    bellLoad = null;
+    clearTimeout(bellTimer);
+    setClass($('doorbell'), 'on', false);
+    idleAt = Date.now();
+  }
+
   // MARK: - Toast
 
   var toastTimer = 0;
@@ -1594,6 +1748,11 @@
 
   document.addEventListener('keydown', function (e) {
     var k = e.keyCode;
+    if (bellOn) {   // the doorbell holds the keys: Back or OK closes it
+      if (k === TV.keys.ok || k === TV.keys.back || k === 27 || k === 8) hideBell();
+      e.preventDefault();
+      return;
+    }
     if (poke(k === TV.keys.ok)) { e.preventDefault(); return; }   // the first press only wakes the screen (or OK watches)
     if (typing(k)) return;
     if (k === TV.keys.left) move(-1, 0);
@@ -1694,7 +1853,10 @@
   document.addEventListener('webOSRelaunch', reopened);   // LG: opened again while running
   window.addEventListener('appcontrol', reopened);        // Samsung: the same
   document.addEventListener('visibilitychange', function () {
-    if (document.hidden) { hideSaver(); hideAmbient(); return; }
+    // Behind another app the TV may freeze the page: the stream closes, and opens again (with the last minute's ring,
+    // if any) when the home screen is back.
+    if (document.hidden) { hideSaver(); hideAmbient(); hideBell(); HA.stop(); return; }
+    HA.start();
     idleAt = Date.now();
     loadApps(function () { renderShelf(); renderDrawer(); updateFocus(); Data.refresh(); });
   });
@@ -1707,6 +1869,9 @@
   renderTop();
   applyDim();
   tickClock();
+  HA.onChange(haChanged);
+  HA.onRing(ring);
+  HA.start();
   loadApps(function () {
     renderAll();
     restInDrawer();
@@ -1725,5 +1890,5 @@
 
   // For the browser preview and tests.
   window.FreeMyTV = {state: st, move: move, activate: activate, back: back, showSaver: showSaver, hideSaver: hideSaver, toast: toast,
-    showAmbient: showAmbient, hideAmbient: hideAmbient, applyDim: applyDim};
+    showAmbient: showAmbient, hideAmbient: hideAmbient, applyDim: applyDim, ring: ring, hideBell: hideBell};
 })();

@@ -189,8 +189,13 @@ var TV = (function () {
     deezer: 'icons/deezer.svg', youtubekids: 'icons/youtubekids.svg', redbulltv: 'icons/redbull.svg', ted: 'icons/ted.svg',
     steamlink: 'icons/steam.svg', jellyfin: 'icons/jellyfin.svg', paramount: 'icons/paramountplus.svg',
     paramountplus: 'icons/paramountplus.svg', crunchyroll: 'icons/crunchyroll.svg', twitch: 'icons/twitch.svg',
-    plex: 'icons/plex.svg', appletv: 'icons/appletv.svg'
+    plex: 'icons/plex.svg', appletv: 'icons/appletv.svg', channel4: 'icons/channel4.svg', all4: 'icons/channel4.svg'
   };
+
+  // Apps whose Smart Hub icon draws badly (a blurry square or the pinwheel, which loads, so onerror never fires) and
+  // which Simple Icons has no logo for: no icon at all, so the tile shows their name on their brand color (SHELF in
+  // home.js). By name, as above. Seen on a 2023 TV (Tizen 7).
+  var SAMSUNG_NO_ICON = /^(disney|bbciplayer|iplayer)/;
 
   // Names Smart Hub gets wrong: HBO's app has none (so it never reached the shelf), others are long or old.
   var SAMSUNG_TITLES = {
@@ -290,6 +295,7 @@ var TV = (function () {
     var key = String(title).toLowerCase().replace(/[^a-z0-9]/g, '');
     var byName = Object.prototype.hasOwnProperty.call(SAMSUNG_ICON_NAMES, key) ? SAMSUNG_ICON_NAMES[key] : '';
     if (SAMSUNG_ICONS[a.id] || byName) icon = SAMSUNG_ICONS[a.id] || byName;
+    else if (SAMSUNG_NO_ICON.test(key)) icon = '';
     var dial = key === 'netflix' ? 'Netflix' : key === 'youtube' ? 'YouTube' : /^(amazon)?primevideo$/.test(key) ? 'Amazon' : '';
     if (dial) samsungDial[a.id] = dial;
     return {id: a.id, title: title, icon: icon, color: ''};

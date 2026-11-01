@@ -1,0 +1,34 @@
+# What the TV may see and do. Copy to config.yaml and put your own entity ids in (Developer tools → States in Home
+# Assistant lists them). Locks and alarm panels are refused even if listed: anyone in the room can press a TV remote.
+# Icons: bedtime bell blinds bolt fan home lightbulb live_tv play smart_button speaker sync toggle tv sunny clear_night
+# rainy cloud.
+
+# Up to 3, shown top right of the home screen, read-only.
+strip:
+  - entity: sensor.bin_collection        # a date sensor reads "Tomorrow", "Thu", "14 Nov"
+    label: Bins
+    icon: home
+  - entity: calendar.family              # the next event: "Swimming · Thu 17:00"
+    label: Next
+    icon: bell
+  - entity: binary_sensor.front_door     # a door sensor reads "Open" / "Closed"
+    label: Front door
+    icon: home
+    # states: {"on": "Open!", "off": "Shut"}   # optional: your own words for a state
+
+# The Sonos (any media_player): a card in the drawer, and play/pause and volume tiles.
+player: media_player.living_room
+
+# Tiles in the drawer's Home group. Each runs one service on its entities, nothing else.
+actions:
+  - id: film
+    label: Film mode
+    icon: bedtime
+    service: scene.turn_on
+    entity: scene.film_mode
+
+# A ring shows this camera over the home screen for up to a minute (ring-mqtt: the ding is an event or binary_sensor).
+doorbell:
+  ding: event.front_door_ding
+  camera: camera.front_door_snapshot
+  label: Front door
