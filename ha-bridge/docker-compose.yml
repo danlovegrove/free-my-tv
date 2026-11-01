@@ -1,0 +1,15 @@
+services:
+  tv-bridge:
+    build: .
+    container_name: tv-bridge
+    restart: unless-stopped
+    ports:
+      - "8124:8124"
+    environment:
+      TZ: Europe/London
+    env_file: .env
+    volumes:
+      - ./config.yaml:/config/config.yaml:ro
+    read_only: true
+    security_opt:
+      - no-new-privileges:true

@@ -1,0 +1,48 @@
+# Dan's fork: every push to main that changes the TV app checks it, builds the Samsung package and publishes it as the
+# latest release, so TizenBrew Installer (Install from GitHub → danlovegrove/free-my-tv) always finds a fresh
+# FreeMyTV-tizen.wgt. Built with --generic: no keys or tokens go into a public release. TizenBrew signs it with the
+# owner's Samsung certificate on the TV's side (2023+ TVs), so nothing here needs signing secrets.
+name: Release
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'web/**'
+      - 'tizen/**'
+      - 'tools/**'
+      - 'app/src/main/res/values*/strings.xml'
+      - '.github/workflows/release.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: release
+  cancel-in-progress: false
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - name: Check (same script as CI)
+        run: tools/check.sh web
+      - name: Build the Samsung package
+        # The tv-bridge's address on the home network (Settings → Secrets and variables → Actions → Variables:
+        # HA_BRIDGE_URL, like http://192.168.68.20:8124). Unset: a build without the Home Assistant features.
+        env:
+          FREEMYTV_HA_BRIDGE: ${{ vars.HA_BRIDGE_URL }}
+        run: python3 tizen/build.py --generic
+      - name: Publish the release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          version=$(sed -n 's/.*<widget [^>]*version="\([^"]*\)".*/\1/p' tizen/config.xml)
+          tag="v${version}-dan.${GITHUB_RUN_NUMBER}"
+          gh release create "$tag" FreeMyTV-tizen.wgt \
+            --target "$GITHUB_SHA" \
+            --title "Free My TV ${version} (dan.${GITHUB_RUN_NUMBER})" \
+            --notes "Built from ${GITHUB_SHA::7}: $(git log -1 --format=%s)" \
+            --latest

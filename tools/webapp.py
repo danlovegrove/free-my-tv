@@ -15,13 +15,31 @@ import translate  # noqa: E402  (the catalogues and the keys the web app uses)
 
 GENERIC = {'tmdbKey': '', 'tmdbRegion': '', 'latitude': '', 'longitude': '', 'city': '', 'language': 'auto',
            'currency': '', 'temperature': 'auto', 'theme': 'auto', 'showCrypto': True, 'hideAnimation': False, 'hideApps': [],
-           'shelfApps': [], 'drawerFirst': False, 'openPicksIn': 'apps'}
+           'shelfApps': [], 'drawerFirst': False, 'openPicksIn': 'apps', 'haBridge': ''}
+
+PRIVATE_HOST = re.compile(r'^(10\.\d+\.\d+\.\d+|192\.168\.\d+\.\d+|172\.(1[6-9]|2\d|3[01])\.\d+\.\d+'
+                          r'|[a-z0-9-]+|[a-z0-9.-]+\.(local|lan|home\.arpa))$', re.I)
+
+
+def ha_bridge(value):
+    """The tv-bridge address (ha-bridge/): plain http only to the home network, as Android's lan_server. '' for none."""
+    value = (value or '').strip().rstrip('/')
+    if not value:
+        return ''
+    m = re.match(r'^(https?)://([^/:]+)(:\d+)?$', value)
+    if not m:
+        sys.exit('home_assistant_bridge: an address like http://192.168.68.20:8124 (got "%s")' % value)
+    if m.group(1) == 'http' and not PRIVATE_HOST.match(m.group(2)):
+        sys.exit('home_assistant_bridge: plain http only to your own network (got "%s")' % value)
+    return value
 
 
 def config_from_args(args):
     """The settings for these command-line arguments (--generic, --config PATH or config.properties)."""
     if '--generic' in args:
-        return dict(GENERIC)
+        # The fork's release sets FREEMYTV_HA_BRIDGE from a repository variable: an address on the home network,
+        # never a token (the bridge holds that).
+        return dict(GENERIC, haBridge=ha_bridge(os.environ.get('FREEMYTV_HA_BRIDGE', '')))
     path = os.path.join(ROOT, 'config.properties')
     if '--config' in args:
         path = os.path.abspath(args[args.index('--config') + 1])
@@ -67,6 +85,7 @@ def read_config(path):
         'shelfApps': [s.strip() for s in values.get('shelf_apps', '').split(',') if s.strip()],
         'drawerFirst': values.get('drawer_first', 'false').lower() == 'true',
         'openPicksIn': 'nuvio' if values.get('open_picks_in', '').strip().lower() == 'nuvio' else 'apps',
+        'haBridge': ha_bridge(values.get('home_assistant_bridge', '') or os.environ.get('FREEMYTV_HA_BRIDGE', '')),
     }
 
 
