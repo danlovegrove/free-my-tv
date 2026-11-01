@@ -40,9 +40,10 @@ jobs:
           GH_TOKEN: ${{ github.token }}
         run: |
           version=$(sed -n 's/.*<widget [^>]*version="\([^"]*\)".*/\1/p' tizen/config.xml)
-          tag="v${version}-dan.${GITHUB_RUN_NUMBER}"
+          stamp=$(date -u +%Y%m%d.%H%M)   # not the run number: it restarts at 1 and met a release made by hand
+          tag="v${version}-dan.${stamp}"
           gh release create "$tag" FreeMyTV-tizen.wgt \
             --target "$GITHUB_SHA" \
-            --title "Free My TV ${version} (dan.${GITHUB_RUN_NUMBER})" \
+            --title "Free My TV ${version} (dan.${stamp})" \
             --notes "Built from ${GITHUB_SHA::7}: $(git log -1 --format=%s)" \
             --latest
