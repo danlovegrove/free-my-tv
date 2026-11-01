@@ -322,11 +322,11 @@
 
   // MARK: - Focus
 
-  var Z = {TOP: 'top', CARDS: 'cards', SHELF: 'shelf', DRAWER: 'drawer', APPS: 'apps', SETTINGS: 'settings', EDIT: 'edit', LANG: 'lang', CITY: 'city', KEY: 'key', ABOUT: 'about'};
-  var st = {zone: Z.SHELF, top: 0, tab: 0, card: 0, shelf: 0, drawer: 0, grid: 0, row: 0, edit: 0, lang: 0, city: 0, key: 0};
+  var Z = {TOP: 'top', CARDS: 'cards', SHELF: 'shelf', DRAWER: 'drawer', APPS: 'apps', SETTINGS: 'settings', EDIT: 'edit', LANG: 'lang', CITY: 'city', KEY: 'key', BRIDGE: 'bridge', ABOUT: 'about'};
+  var st = {zone: Z.SHELF, top: 0, tab: 0, card: 0, shelf: 0, drawer: 0, grid: 0, row: 0, edit: 0, lang: 0, city: 0, key: 0, bridge: 0};
   var cards = [];
 
-  function sheetOpen() { return st.zone === Z.APPS || st.zone === Z.SETTINGS || st.zone === Z.EDIT || st.zone === Z.LANG || st.zone === Z.CITY || st.zone === Z.KEY || st.zone === Z.ABOUT; }
+  function sheetOpen() { return st.zone === Z.APPS || st.zone === Z.SETTINGS || st.zone === Z.EDIT || st.zone === Z.LANG || st.zone === Z.CITY || st.zone === Z.KEY || st.zone === Z.BRIDGE || st.zone === Z.ABOUT; }
 
   function updateFocus() {
     var i, list;
@@ -356,6 +356,7 @@
     if (langHint) langHint.textContent = (st.lang + 1) + ' / ' + languageChoices().length + '  ·  ' + tr('OK picks, Back cancels.');
     focusRows($('citypick'), st.city, st.zone === Z.CITY);
     focusRows($('keypick'), st.key, st.zone === Z.KEY);
+    focusRows($('bridgepick'), st.bridge, st.zone === Z.BRIDGE);
     setClass(body, 'drawer-open', st.zone === Z.DRAWER);
     followSoon();
   }
@@ -812,8 +813,10 @@
     setClass($('about'), 'open', false);
     closeField('citypick');
     closeField('keypick');
+    closeField('bridgepick');
     setClass($('citypick'), 'open', false);
     setClass($('keypick'), 'open', false);
+    setClass($('bridgepick'), 'open', false);
     langHint = null;
     st.zone = Z.SHELF;
     updateFocus();
@@ -878,11 +881,11 @@
       rows.push({label: tr('Open picks in'), value: open === 'nuvio' ? 'Nuvio' : tr('Streaming apps'),
         step: function (d) { cycle('openPicks', ['apps', 'nuvio'], open, d); }});
     }
-    if (HA.available()) {
-      // A product name, as on Android: not translated. Off stops the strip, the tiles and the doorbell at once.
-      rows.push({label: 'Home Assistant', toggle: Prefs.ha(), dim: Prefs.ha() && HA.status() !== 'ok',
-        step: function () { Prefs.set('ha', !Prefs.ha()); HA.start(); }});
-    }
+    // Home Assistant through tv-bridge: its address is typed here and stays on this TV, never in a build.
+    // A product name, as on Android: not translated.
+    var hb = Prefs.haBridge();
+    rows.push({label: 'Home Assistant', value: hb ? hb.replace(/^https?:\/\//, '') : tr('Not set'), opens: true, bridge: true,
+      dim: !!hb && HA.status() !== 'ok', step: function (d) { if (d >= 0) openBridge(); }});
     rows.push({label: tr('Shelf'), value: '›', shelf: true, step: function (d) { if (d >= 0) openShelfEdit(); }});
     rows.push({label: tr('About this TV'), value: '›', about: true, step: function (d) { if (d >= 0) openAbout(); }});
     if (TV.canOpenSettings) rows.push({label: tr('TV Settings'), value: '›', step: function (d) { if (d >= 0) tvSettings(); }});
@@ -1224,6 +1227,117 @@
     else askRemoveKey(true);
   }
 
+  // MARK: - Home Assistant's bridge: its address typed with the TV's keyboard, checked, kept on this TV
+
+  var bridgeStatus = '', bridgeWarn = false, bridgeSeq = 0, bridgeTimer = 0;
+
+  /** The field, Save, and Remove once an address is saved. */
+  function bridgeRows() { return Prefs.haBridge() ? 3 : 2; }
+
+  function renderBridge() {
+    var box = $('bridgepick').firstChild, old = fieldOf('bridgepick'), inField = typingIn('bridgepick');
+    var typed = old ? old.value : Prefs.haBridge().replace(/^http:\/\//, '');
+    box.innerHTML = '';
+    el('div', 'title', box, 'Home Assistant');
+    var list = el('div', 'list', box), holder = el('div', 'rows', list);
+    list.style.height = bridgeRows() * 78 + 'px';
+    var field = textField(holder, Z.BRIDGE, typed, '192.168.1.20', 'Home Assistant');
+    field.setAttribute('autocapitalize', 'none');
+    field.setAttribute('autocorrect', 'off');
+    var save = el('div', 'row', holder, tr('Save'));
+    sym('chevron_right', el('span', 'value', save));
+    hover(save, Z.BRIDGE, 1);
+    if (Prefs.haBridge()) hover(el('div', 'row', holder, tr('Remove')), Z.BRIDGE, 2);
+    if (bridgeStatus) setClass(el('div', 'hint', box, bridgeStatus), 'warn', bridgeWarn);
+    el('div', 'hint steps', box, 'The IP of the computer running tv-bridge, like 192.168.1.20 (port 8124 unless you add one).\n'
+      + 'It stays on this TV.');
+    if (inField) openField('bridgepick');
+    updateFocus();
+  }
+
+  function openBridge() {
+    setClass($('settings'), 'open', false);
+    st.zone = Z.BRIDGE;
+    st.bridge = 0;
+    bridgeStatus = '';
+    $('bridgepick').firstChild.innerHTML = '';
+    renderBridge();
+    setClass($('bridgepick'), 'open', true);
+    openField('bridgepick');
+  }
+
+  function setBridgeStatus(text, warn) {
+    bridgeStatus = text;
+    bridgeWarn = !!warn;
+    clearTimeout(bridgeTimer);
+    if (text && text !== tr('Checking…')) bridgeTimer = setTimeout(function () {
+      bridgeStatus = '';
+      var line = st.zone === Z.BRIDGE && $('bridgepick').querySelector('.hint:not(.steps)');
+      if (line) line.parentNode.removeChild(line);
+    }, 6000);
+    if (st.zone === Z.BRIDGE) renderBridge();
+  }
+
+  /**
+   * What was typed as the bridge's address: "192.168.1.20" → "http://192.168.1.20:8124". Plain http only to the home
+   * network (as tools/webapp.py and Android's lan_server); '' when it isn't one.
+   */
+  function cleanBridge(typed) {
+    var a = typed.replace(/\s+/g, '').replace(/\/+$/, '');
+    if (!/^https?:\/\//i.test(a)) a = 'http://' + a;
+    var m = /^(https?):\/\/([A-Za-z0-9.-]+)(:\d{1,5})?$/i.exec(a);
+    if (!m) return '';
+    var host = m[2].toLowerCase(), port = m[3] || (m[1].toLowerCase() === 'http' ? ':8124' : '');
+    var home = /^(10\.\d+\.\d+\.\d+|192\.168\.\d+\.\d+|172\.(1[6-9]|2\d|3[01])\.\d+\.\d+|[a-z0-9-]+|[a-z0-9.-]+\.(local|lan|home\.arpa))$/.test(host);
+    if (m[1].toLowerCase() === 'http' && !home) return '';
+    return m[1].toLowerCase() + '://' + host + port;
+  }
+
+  function saveBridge() {
+    var f = fieldOf('bridgepick'), typed = f ? f.value : '', addr = cleanBridge(typed);
+    closeField('bridgepick');
+    if (!typed.replace(/\s+/g, '')) { st.bridge = 0; openField('bridgepick'); updateFocus(); return; }
+    if (bridgeStatus === tr('Checking…')) return;
+    if (!addr) { setBridgeStatus("That isn't an address on your home network.", true); return; }
+    setBridgeStatus(tr('Checking…'));
+    var mine = ++bridgeSeq;   // an answer for a sheet already closed is dropped
+    HA.check(addr, function (err) {
+      if (mine !== bridgeSeq || st.zone !== Z.BRIDGE) return;
+      if (err) { setBridgeStatus(tr("Couldn't reach Home Assistant."), true); return; }
+      Prefs.set('haBridge', addr);
+      HA.start();
+      closeBridge();
+    });
+  }
+
+  /** Off: the strip, the tiles and the doorbell go, until an address is saved again. */
+  function removeBridge() {
+    Prefs.set('haBridge', '');
+    HA.start();
+    closeBridge();
+  }
+
+  /** Back on the Home Assistant row of Home Settings. */
+  function closeBridge() {
+    closeField('bridgepick');
+    setClass($('bridgepick'), 'open', false);
+    bridgeSeq++;
+    clearTimeout(bridgeTimer);
+    bridgeStatus = '';
+    var f = fieldOf('bridgepick');
+    if (f) f.value = '';
+    $('bridgepick').firstChild.innerHTML = '';
+    openSettings();
+    for (var i = 0; i < rowsNow.length; i++) if (rowsNow[i].bridge) st.row = i;
+    updateFocus();
+  }
+
+  function activateBridge() {
+    if (st.bridge === 0) openField('bridgepick');
+    else if (st.bridge === 1) saveBridge();
+    else removeBridge();
+  }
+
   // MARK: - About this TV: what to quote when reporting a problem, without LG's or Samsung's slow menus
 
   function renderAbout(info) {
@@ -1398,6 +1512,9 @@
       case Z.KEY:
         activateKey();
         return;
+      case Z.BRIDGE:
+        activateBridge();
+        return;
       case Z.ABOUT:
         closeAbout();
         return;
@@ -1470,6 +1587,9 @@
       case Z.KEY:
         if (dy) st.key = Math.max(0, Math.min(keyRows() - 1, st.key + dy));
         break;
+      case Z.BRIDGE:
+        if (dy) st.bridge = Math.max(0, Math.min(bridgeRows() - 1, st.bridge + dy));
+        break;
     }
     updateFocus();
   }
@@ -1485,6 +1605,7 @@
     if (st.zone === Z.LANG) { closeLanguages(false); return; }
     if (st.zone === Z.CITY) { closeCities(false); return; }
     if (st.zone === Z.KEY) { if (keyAsking) askRemoveKey(false); else closeKey(); return; }
+    if (st.zone === Z.BRIDGE) { closeBridge(); return; }
     if (st.zone === Z.ABOUT) { closeAbout(); return; }
     if (sheetOpen()) { closeSheets(); return; }
     if (st.zone === Z.DRAWER) { closeDrawer(); return; }
@@ -1495,7 +1616,7 @@
   /** The pointer focuses what it's over (the Magic Remote, or a mouse when previewing). */
   function hover(node, zone, index) {
     node.onmouseover = function () {
-      if (saverOn || (sheetOpen() !== (zone === Z.APPS || zone === Z.SETTINGS || zone === Z.EDIT || zone === Z.LANG || zone === Z.CITY || zone === Z.KEY || zone === Z.ABOUT))) return;
+      if (saverOn || (sheetOpen() !== (zone === Z.APPS || zone === Z.SETTINGS || zone === Z.EDIT || zone === Z.LANG || zone === Z.CITY || zone === Z.KEY || zone === Z.BRIDGE || zone === Z.ABOUT))) return;
       if (zone === Z.DRAWER && st.zone !== Z.DRAWER) return;
       if (zone !== Z.DRAWER && st.zone === Z.DRAWER && zone !== Z.SHELF) return;
       if (zone === Z.TOP && index < 3 && !Data.hasKey()) return;   // the tabs are hidden without the picks
@@ -1511,6 +1632,7 @@
       else if (zone === Z.LANG) st.lang = index;
       else if (zone === Z.CITY) st.city = index;
       else if (zone === Z.KEY) st.key = index;
+      else if (zone === Z.BRIDGE) st.bridge = index;
       updateFocus();
     };
     node.onclick = function () { node.onmouseover(); activate(); };
@@ -1771,9 +1893,9 @@
    * its Cancel or ↑ ↓ leave the field. Samsung's keyboard sends Done as 65376 and Cancel as 65385. True: handled here.
    */
   function typing(k) {
-    var sheet = st.zone === Z.CITY ? 'citypick' : st.zone === Z.KEY ? 'keypick' : '';
+    var sheet = st.zone === Z.CITY ? 'citypick' : st.zone === Z.KEY ? 'keypick' : st.zone === Z.BRIDGE ? 'bridgepick' : '';
     if (!sheet || !typingIn(sheet)) return false;
-    if (k === TV.keys.ok || k === 65376) { if (st.zone === Z.CITY) searchCity(); else saveKey(); }
+    if (k === TV.keys.ok || k === 65376) { if (st.zone === Z.CITY) searchCity(); else if (st.zone === Z.BRIDGE) saveBridge(); else saveKey(); }
     else if (k === TV.keys.back || k === 27 || k === 65385) { closeField(sheet); updateFocus(); }
     else if (k === TV.keys.up || k === TV.keys.down) { closeField(sheet); move(0, k === TV.keys.up ? -1 : 1); }
     return true;   // anything else types into the field

@@ -103,8 +103,8 @@ var Prefs = (function () {
       this.set('servicesOff', list);
     },
     openPicks: function () { return pick('openPicks', CONFIG.openPicksIn === 'nuvio' ? 'nuvio' : 'apps'); },
-    /** Home Assistant through tv-bridge (only builds with a bridge address have the row): on unless turned off. */
-    ha: function () { return pick('ha', true) === true; },
+    /** tv-bridge's address, typed on the TV (Home Settings → Home Assistant), or a build's own ('' for none). */
+    haBridge: function () { return String(pick('haBridge', CONFIG.haBridge || '') || ''); },
     set: function (name, value) { v[name] = value; save(); this.version++; },
     setCoin: function (i, on) {
       var c = (pick('coins', null) || [true, true, true, true]).slice();

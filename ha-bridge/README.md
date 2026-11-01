@@ -23,12 +23,11 @@ TV (Free My TV) ──LAN http──▶ tv-bridge (Docker) ──WebSocket + tok
    curl http://localhost:8124/view   # "connected": true, and the strip's words
    ```
    Give the host a fixed IP (a DHCP reservation) so the TV always finds it.
-4. **GitHub, on the fork:** Settings → Secrets and variables → Actions → *Variables* → New variable
-   `HA_BRIDGE_URL` = `http://<docker host IP>:8124`. (A variable, not a secret: it's an address on your own network.)
-   Then Actions → *Release* → Run workflow (or push anything under `web/`).
-5. **On the Mac:** TizenBrew Installer → Install from GitHub → `danlovegrove/free-my-tv`.
+4. **On the Mac:** TizenBrew Installer → Install from GitHub → `danlovegrove/free-my-tv`.
+5. **On the TV:** Home Settings → *Home Assistant* → type the Docker host's IP (port 8124 is assumed) → *Save*. The TV
+   checks the bridge answers before saving. The address stays on the TV: it's in no build and no repository.
 
-Home Settings on the TV now has a *Home Assistant* row: off hides the strip, the tiles and the doorbell.
+*Remove* on the same screen turns the strip, the tiles and the doorbell off.
 
 ## What the TV gets
 

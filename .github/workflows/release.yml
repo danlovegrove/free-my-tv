@@ -30,10 +30,7 @@ jobs:
       - name: Check (same script as CI)
         run: tools/check.sh web
       - name: Build the Samsung package
-        # The tv-bridge's address on the home network (Settings → Secrets and variables → Actions → Variables:
-        # HA_BRIDGE_URL, like http://192.168.1.20:8124). Unset: a build without the Home Assistant features.
-        env:
-          FREEMYTV_HA_BRIDGE: ${{ vars.HA_BRIDGE_URL }}
+        # Nothing about the home goes in: the tv-bridge address is typed on the TV (Home Settings → Home Assistant).
         run: python3 tizen/build.py --generic
       - name: Publish the release
         env:

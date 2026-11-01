@@ -37,9 +37,7 @@ def ha_bridge(value):
 def config_from_args(args):
     """The settings for these command-line arguments (--generic, --config PATH or config.properties)."""
     if '--generic' in args:
-        # The fork's release sets FREEMYTV_HA_BRIDGE from a repository variable: an address on the home network,
-        # never a token (the bridge holds that).
-        return dict(GENERIC, haBridge=ha_bridge(os.environ.get('FREEMYTV_HA_BRIDGE', '')))
+        return dict(GENERIC)   # nothing about a home: the tv-bridge address is typed on the TV
     path = os.path.join(ROOT, 'config.properties')
     if '--config' in args:
         path = os.path.abspath(args[args.index('--config') + 1])
@@ -85,7 +83,7 @@ def read_config(path):
         'shelfApps': [s.strip() for s in values.get('shelf_apps', '').split(',') if s.strip()],
         'drawerFirst': values.get('drawer_first', 'false').lower() == 'true',
         'openPicksIn': 'nuvio' if values.get('open_picks_in', '').strip().lower() == 'nuvio' else 'apps',
-        'haBridge': ha_bridge(values.get('home_assistant_bridge', '') or os.environ.get('FREEMYTV_HA_BRIDGE', '')),
+        'haBridge': ha_bridge(values.get('home_assistant_bridge', '')),   # own builds only; the TV's setting wins
     }
 
 
