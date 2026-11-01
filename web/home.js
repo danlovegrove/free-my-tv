@@ -82,7 +82,9 @@
     ['nfl', /nfl/, /^nfl/i, ['#013369', '#00163D']],
     ['globoplay', /globoplay/, /globoplay/i, ['#FF8A1F', '#FF2D5A']],
     ['jellyfin', /jellyfin/i, /jellyfin/i, ['#AA5CC3', '#00A4DC']],
-    ['spotify', /spotify/, /spotify/i, ['#1DB954', '#0F7A36']]
+    ['spotify', /spotify/, /spotify/i, ['#1DB954', '#0F7A36']],
+    ['iplayer', /iplayer/, /iplayer/i, ['#F54997', '#A8105A']],
+    ['channel4', /channel4|all4/, /^channel ?4$|^all ?4$/i, ['#1C1C1E', '#000000']]
   ];
   // Apps shown at once, as on Android: 8 (today's smallest tiles, 178 wide); the shelf scrolls for the rest. The
   // built-in list keeps 8 too.
